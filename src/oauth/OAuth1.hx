@@ -4,6 +4,8 @@ import haxe.crypto.Base64;
 import haxe.crypto.Hmac;
 import haxe.Http;
 import haxe.io.Bytes;
+import haxe.Json;
+import oauth.OAuth1.Client;
 
 using Lambda;
 
@@ -32,8 +34,45 @@ class Client {
 		this.token = token;
 	}
 	
-	public function request (uri:String, ?post:Bool = false, ?postData:Dynamic, ?callback:String):String {
-		var req = new Request(uri, consumer, token, post, postData, callback);
+	inline function strToMap (str:String):Map<String, String> {
+		var map = new Map<String, String>();
+		
+		for (i in str.split('&')) {
+			var pair = i.split('=');
+			if (pair.length >= 2) map.set(StringTools.urlDecode(pair[0]), StringTools.urlDecode(pair[1]));
+		}
+		
+		return map;
+	}
+	
+	public function getRequestToken (uri:String, callback:String, ?post:Bool = true):Client {
+		var req = new Request(uri, consumer, token, post, null, { oauth_callback:callback } );
+		req.sign();
+		var result = strToMap(req.send());
+		
+		if (!result.exists("oauth_token")) throw "Failed to get request token.";
+		
+		return new Client(consumer, new Token(result.get("oauth_token"), result.get("oauth_token_secret")));
+	}
+	
+	public function getAccessToken (uri:String, verifier:String, ?post:Bool = true):Client {
+		var result = requestUrlEncoded(uri, post, { oauth_verifier:verifier });
+		
+		if (!result.exists("oauth_token")) throw "Failed to get access token.";
+		
+		return new Client(consumer, new Token(result.get("oauth_token"), result.get("oauth_token_secret")));
+	}
+	
+	public function requestUrlEncoded (uri:String, ?post:Bool = false, ?postData:Dynamic):Map<String, String> {
+		return strToMap(request(uri, post, postData));
+	}
+	
+	public function requestJSON (uri:String, ?post:Bool = false, ?postData:Dynamic):Dynamic {
+		return Json.parse(request(uri, post, postData));
+	}
+	
+	public function request (uri:String, ?post:Bool = false, ?postData:Dynamic):String {
+		var req = new Request(uri, consumer, token, post, postData);
 		req.sign();
 		return req.send();
 	}
@@ -56,7 +95,7 @@ class Request {
 	
 	var data:Dynamic;
 	
-	public function new (uri:String, consumer:Consumer, token:Token, ?post:Bool = false, ?data:Dynamic, ?callback:String) {
+	public function new (uri:String, consumer:Consumer, token:Token, ?post:Bool = false, ?data:Dynamic, ?extraOAuthParams:Dynamic) {
 		this.consumer = consumer;
 		this.token = token;
 		
@@ -81,13 +120,17 @@ class Request {
 		credentials.set("oauth_signature_method", "HMAC-SHA1");
 		credentials.set("oauth_timestamp", Std.string(Std.int(Date.now().getTime()/1000)));
 		credentials.set("oauth_nonce", generateNonce());
-		if (callback != null) credentials.set("oauth_callback", callback);
 		credentials.set("oauth_version", "1.0");
+		if (extraOAuthParams != null) {
+			for (i in Reflect.fields(extraOAuthParams)) {
+				credentials.set(i, Reflect.field(extraOAuthParams, i));
+			}
+		}
 	}
 	
 	public function sign ():Void {
 		var text = baseString();
-		var key = encode(consumer.secret) + '&' + (token != null ? encode(token.secret) : '');
+		var key = encode(consumer.secret) + '&' + ((token != null && token.secret != null) ? encode(token.secret) : '');
 		var hash = new Hmac(SHA1);
 		var bytes = hash.make(Bytes.ofString(key), Bytes.ofString(text));
 		var digest = Base64.encode(bytes);
@@ -260,7 +303,7 @@ class Token {
 	public var key(default, null):String;
 	public var secret(default, null):String;
 	
-	public function new (key, secret) {
+	public function new (key, ?secret) {
 		this.key = key;
 		this.secret = secret;
 	}
