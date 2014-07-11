@@ -5,31 +5,37 @@ import haxe.crypto.Hmac;
 import haxe.Http;
 import haxe.io.Bytes;
 import haxe.Json;
-import oauth.OAuth1.Client;
 
 using Lambda;
 
 /**
- * OAuth 1 implementation.
+ * OAuth 1/2 implementation.
  * 
  * @author Renaud Bardet
  * @author Sam MacPherson
  */
 
+enum OAuthVersion {
+	V1;
+	V2;
+}
+
 class OAuth {
 
-	public static function connect (consumer:Consumer, ?token:Token):Client {
-		return new Client(consumer, token);
+	public static function connect (version:OAuthVersion, consumer:Consumer, ?token:Token):Client {
+		return new Client(version, consumer, token);
 	}
 	
 }
 
 class Client {
 	
+	public var version(default, null):OAuthVersion;
 	public var consumer(default, null):Consumer;
 	public var token(default, null):Token;
 	
-	public function new (consumer:Consumer, ?token:Token) {
+	public function new (version:OAuthVersion, consumer:Consumer, ?token:Token) {
+		this.version = version;
 		this.consumer = consumer;
 		this.token = token;
 	}
@@ -46,21 +52,34 @@ class Client {
 	}
 	
 	public function getRequestToken (uri:String, callback:String, ?post:Bool = true):Client {
-		var req = new Request(uri, consumer, token, post, null, { oauth_callback:callback } );
+		var req = new Request(version, uri, consumer, token, post, null, { oauth_callback:callback } );
 		req.sign();
 		var result = strToMap(req.send());
 		
 		if (!result.exists("oauth_token")) throw "Failed to get request token.";
 		
-		return new Client(consumer, new Token(result.get("oauth_token"), result.get("oauth_token_secret")));
+		return new Client(version, consumer, new Token(result.get("oauth_token"), result.get("oauth_token_secret")));
 	}
 	
-	public function getAccessToken (uri:String, verifier:String, ?post:Bool = true):Client {
-		var result = requestUrlEncoded(uri, post, { oauth_verifier:verifier });
+	/**
+	 * Get the access token.
+	 * 
+	 * In OAuth 1 verifier argument is the oauth_verifier parameter.
+	 * In OAuth 2 verifier argument is the code parameter.
+	 * 
+	 * The callback argument is only required in OAuth 2.
+	 */
+	public function getAccessToken (uri:String, verifier:String, ?callback:String, ?post:Bool = true):Client {
+		if (version == V2 && callback == null) throw "The callback argument is required for OAuth 2.";
 		
-		if (!result.exists("oauth_token")) throw "Failed to get access token.";
+		var result = switch (version) {
+			case V1: requestUrlEncoded(uri, post, { oauth_verifier:verifier });
+			case V2: jsonToMap(requestJSON(uri, post, { code:verifier, client_id:consumer.key, client_secret:consumer.secret, redirect_uri:callback, grant_type:"authorization_code" }));
+		};
 		
-		return new Client(consumer, new Token(result.get("oauth_token"), result.get("oauth_token_secret")));
+		if (!result.exists(version == V1 ? "oauth_token" : "access_token")) throw "Failed to get access token.";
+		
+		return new Client(version, consumer, version == V1 ? new Token(result.get("oauth_token"), result.get("oauth_token_secret")) : new Token(result.get("access_token"), result.get("refresh_token")));
 	}
 	
 	public function requestUrlEncoded (uri:String, ?post:Bool = false, ?postData:Dynamic):Map<String, String> {
@@ -71,9 +90,19 @@ class Client {
 		return Json.parse(request(uri, post, postData));
 	}
 	
+	inline function jsonToMap (json:Dynamic):Map<String, String> {
+		var map = new Map<String, String>();
+		
+		for (i in Reflect.fields(json)) {
+			map.set(i, Reflect.field(json, i));
+		}
+		
+		return map;
+	}
+	
 	public function request (uri:String, ?post:Bool = false, ?postData:Dynamic):String {
-		var req = new Request(uri, consumer, token, post, postData);
-		req.sign();
+		var req = new Request(version, uri, consumer, token, post, postData);
+		if (version == V1) req.sign();
 		return req.send();
 	}
 	
@@ -81,6 +110,7 @@ class Client {
 
 class Request {
 	
+	var version:OAuthVersion;
 	var consumer:Consumer;
 	var token:Token;
 	
@@ -95,7 +125,8 @@ class Request {
 	
 	var data:Dynamic;
 	
-	public function new (uri:String, consumer:Consumer, token:Token, ?post:Bool = false, ?data:Dynamic, ?extraOAuthParams:Dynamic) {
+	public function new (version:OAuthVersion, uri:String, consumer:Consumer, token:Token, ?post:Bool = false, ?data:Dynamic, ?extraOAuthParams:Dynamic) {
+		this.version = version;
 		this.consumer = consumer;
 		this.token = token;
 		
@@ -140,7 +171,10 @@ class Request {
 	public function send ():String {
 		var h = new Http(uri());
 		h.setHeader("Authorization", composeHeader());
-		if (data != null) h.setPostData(postDataStr());
+		if (data != null) {
+			h.setHeader("Content-Type", "application/x-www-form-urlencoded");
+			h.setPostData(postDataStr());
+		}
 		var ret = '';
 		h.onData = function(d) ret = d;
 		h.request(post);
@@ -170,16 +204,21 @@ class Request {
 	function composeHeader ():String {
 		var buf = new StringBuf() ;
 		
-		buf.add("OAuth ") ;
-		
-		var params = credentials.keys();
-		for (p in params) {
-			buf.add(encode(p));
-			buf.add("=\"") ;
-			buf.add(encode(credentials.get(p)));
-			buf.add('"') ;
-			if (params.hasNext())
-				buf.add(', ');
+		switch (version) {
+			case V1:
+				buf.add("OAuth ");
+				
+				var params = credentials.keys();
+				for (p in params) {
+					buf.add(encode(p));
+					buf.add("=\"") ;
+					buf.add(encode(credentials.get(p)));
+					buf.add('"') ;
+					if (params.hasNext())
+						buf.add(', ');
+				}
+			case V2:
+				if (token != null) buf.add("Bearer " + token.key);
 		}
 		
 		return buf.toString();
@@ -298,6 +337,12 @@ class Consumer {
 	
 }
 
+/**
+ * Represents a token.
+ * 
+ * For OAuth1 key is the oauth_token and secret is the oauth_token_secret.
+ * For OAuth2 key is the access_token and secret is the refresh_token.
+ */
 class Token {
 	
 	public var key(default, null):String;
