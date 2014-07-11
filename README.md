@@ -17,7 +17,7 @@ OAuth 1 Usage
 	var client = consumer.getAccessToken("https://someapi.com/oauth/access_token", "VERIFIER TOKEN PROVIDED BY USER");
 	
 	//Do API calls
-	trace(client.requestJSON("https://someapi.com/users/me", true, { details:'1' }));
+	trace(client.requestJSON("https://someapi.com/users/me", false, { details:'1' }));
 
 OAuth 2 Usage
 -------------
@@ -30,4 +30,4 @@ OAuth 2 Usage
 	var client = consumer.getAccessToken("https://someapi.com/oauth2/token", "CODE PROVIDED BY USER", "https://example.com/oauth/callback");
 	
 	//Do API calls
-	trace(client.requestJSON("https://someapi.com/users/me", true, { details:'1' }));
+	trace(client.requestJSON("https://someapi.com/users/me", false, { details:'1' }));
