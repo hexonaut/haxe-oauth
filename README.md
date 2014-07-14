@@ -26,7 +26,7 @@ OAuth 2 Usage
 	// ...
 	
 	//Get an access token
-	var consumer = oauth.OAuth.connect(V1, new Consumer("CONSUMER API KEY", "CONSUMER API SECRET"));
+	var consumer = oauth.OAuth.connect(V2, new Consumer("CONSUMER API KEY", "CONSUMER API SECRET"));
 	var client = consumer.getAccessToken("https://someapi.com/oauth2/token", "CODE PROVIDED BY USER", "https://example.com/oauth/callback");
 	
 	//Do API calls

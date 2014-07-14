@@ -4,8 +4,8 @@
   "tags": ["cross"],
   "description": "OAuth 1 and 2.",
   "contributors": ["Blank101"],
-  "releasenote": "Initial.",
-  "version": "0.0.1",
+  "releasenote": "Added Hmac and Sha256 to library until it is available in a stable release of Haxe.",
+  "version": "0.0.2",
   "url": "https://github.com/Blank101/haxe-oauth",
   "dependencies": {
 
