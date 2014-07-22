@@ -3,31 +3,53 @@ haxe-oauth
 
 Haxe library for OAuth 1/2 communications. Pulled from https://code.google.com/p/hxoauth/ and updated for Haxe 3.
 
+*NOTE* that I have only implemented the OAuth web flow. IE this library may not work for mobile native apps. I do not have much personal experience with native apps so if someone wants to submit a PR with this support that would be much appreciated.
+
 OAuth 1 Usage
 -------------
 
-	//Get a request token
-	var consumer = oauth.OAuth.connect(V1, new Consumer("CONSUMER API KEY", "CONSUMER API SECRET"));
-	var requestClient = consumer.getRequestToken("https://someapi.com/oauth/request_token", "https://example.com/oauth/callback");
+Assumes a JavaScript client, but it should work similarly for clients that have an integrated browser.
+
+	//SERVER Get a request token
+	var consumer = oauth.OAuth.OAuth1.connect(new Consumer("CONSUMER API KEY", "CONSUMER API SECRET"));
+	var requestToken = consumer.getRequestToken("https://someapi.com/oauth/request_token", "https://example.com/oauth/callback");
 	
-	//Redirect user to login page
-	// ...
+	// ... Send requestToken.token to browser (Perhaps via a JSON response) ...
 	
-	//Get an access token
-	var client = consumer.getAccessToken("https://someapi.com/oauth/access_token", "VERIFIER TOKEN PROVIDED BY USER");
+	//CLIENT Open window to show user the authentication screen
+	js.Browser.window.open(oauth.OAuth.OAuth1.buildAuthUrl("https://someapi.com/oauth/authenticate", "REQUEST TOKEN PROVIDED BY SERVER"), null);
 	
-	//Do API calls
-	trace(client.requestJSON("https://someapi.com/users/me", false, { details:'1' }));
+	//SERVER Convert the verifier token provided by the API into an access token
+	var client = oauth.OAuth.OAuth1.connect(new Consumer("CONSUMER API KEY", "CONSUMER API SECRET"), new OAuth1AccessToken("ACCESS TOKEN PROVIDED BY USER"))
+					.getAccessToken1("https://someapi.com/oauth/access_token", "VERIFIER TOKEN PROVIDED BY USER");
+	
+	//SERVER Do API calls
+	
+	//GET request
+	trace(client.requestJSON("https://someapi.com/users/me?details=1"));
+	
+	//POST request
+	trace(client.requestJSON("https://someapi.com/messages", true, { title:"Some Title", body:"Some Message Body" }));
 
 OAuth 2 Usage
 -------------
+
+Assumes a JavaScript client, but it should work similarly for clients that have an integrated browser.
 	
-	//Redirect user to login page
-	// ...
+	//CLIENT Open window to show user the authentication screen
+	js.Browser.window.open(oauth.OAuth.OAuth2.buildAuthUrl("https://someapi.com/oauth2/auth", "CONSUMER API KEY", { redirectUri:"https://example.com/oauth/callback", scope:"LIST API ENDPOINTS YOU NEED ACCESS TO HERE", state:oauth.OAuth.OAuth2.nonce() }, [ "someAdditionalParameter" => "123" ]), null);
 	
-	//Get an access token
-	var consumer = oauth.OAuth.connect(V2, new Consumer("CONSUMER API KEY", "CONSUMER API SECRET"));
-	var client = consumer.getAccessToken("https://someapi.com/oauth2/token", "CODE PROVIDED BY USER", "https://example.com/oauth/callback");
+	//SERVER Convert the code provided by the API into an access token
+	var consumer = oauth.OAuth.OAuth2.connect(new Consumer("CONSUMER API KEY", "CONSUMER API SECRET"));
+	var client = consumer.getAccessToken2("https://someapi.com/oauth2/token", "CODE PROVIDED BY USER", "https://example.com/oauth/callback");
 	
-	//Do API calls
-	trace(client.requestJSON("https://someapi.com/users/me", false, { details:'1' }));
+	//SERVER Do API calls
+	
+	//GET request
+	trace(client.requestJSON("https://someapi.com/users/me?details=1"));
+	
+	//POST request
+	trace(client.requestJSON("https://someapi.com/messages", true, { title:"Some Title", body:"Some Message Body" }));
+	
+	//SERVER Get a new access token if the old one has expired
+	client.refreshAccessToken("https://someapi.com/oauth2/token");
