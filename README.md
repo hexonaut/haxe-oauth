@@ -11,7 +11,7 @@ OAuth 1 Usage
 Assumes a JavaScript client, but it should work similarly for clients that have an integrated browser.
 
 	//SERVER Get a request token
-	var consumer = oauth.OAuth1.connect(new Consumer("CONSUMER API KEY", "CONSUMER API SECRET"));
+	var consumer = oauth.OAuth1.connect(new oauth.Consumer("CONSUMER API KEY", "CONSUMER API SECRET"));
 	var requestToken = consumer.getRequestToken("https://someapi.com/oauth/request_token", "https://example.com/oauth/callback");
 	
 	// ... Send requestToken.token to browser (Perhaps via a JSON response) ...
@@ -20,7 +20,7 @@ Assumes a JavaScript client, but it should work similarly for clients that have 
 	js.Browser.window.open(oauth.OAuth1.buildAuthUrl("https://someapi.com/oauth/authenticate", "REQUEST TOKEN PROVIDED BY SERVER"), null);
 	
 	//SERVER Convert the verifier token provided by the API into an access token
-	var client = oauth.OAuth1.connect(new Consumer("CONSUMER API KEY", "CONSUMER API SECRET"), new OAuth1AccessToken("ACCESS TOKEN PROVIDED BY USER"))
+	var client = oauth.OAuth1.connect(new oauth.Consumer("CONSUMER API KEY", "CONSUMER API SECRET"), new oauth.Tokens.OAuth1AccessToken("ACCESS TOKEN PROVIDED BY USER"))
 					.getAccessToken1("https://someapi.com/oauth/access_token", "VERIFIER TOKEN PROVIDED BY USER");
 	
 	//SERVER Do API calls
@@ -40,7 +40,7 @@ Assumes a JavaScript client, but it should work similarly for clients that have 
 	js.Browser.window.open(oauth.OAuth2.buildAuthUrl("https://someapi.com/oauth2/auth", "CONSUMER API KEY", { redirectUri:"https://example.com/oauth/callback", scope:"LIST API ENDPOINTS YOU NEED ACCESS TO HERE", state:oauth.OAuth.OAuth2.nonce() }, [ "someAdditionalParameter" => "123" ]), null);
 	
 	//SERVER Convert the code provided by the API into an access token
-	var consumer = oauth.OAuth2.connect(new Consumer("CONSUMER API KEY", "CONSUMER API SECRET"));
+	var consumer = oauth.OAuth2.connect(new oauth.Consumer("CONSUMER API KEY", "CONSUMER API SECRET"));
 	var client = consumer.getAccessToken2("https://someapi.com/oauth2/token", "CODE PROVIDED BY USER", "https://example.com/oauth/callback");
 	
 	//SERVER Do API calls
