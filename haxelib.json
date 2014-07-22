@@ -4,8 +4,8 @@
   "tags": ["cross"],
   "description": "OAuth 1 and 2.",
   "contributors": ["Blank101"],
-  "releasenote": "Clean up.",
-  "version": "0.1.1",
+  "releasenote": "Split OAuth into seperate files.",
+  "version": "0.2.1",
   "url": "https://github.com/Blank101/haxe-oauth",
   "dependencies": {
 
