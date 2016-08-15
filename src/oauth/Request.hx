@@ -75,12 +75,15 @@ class Request {
 		credentials.set("oauth_signature", digest);
 	}
 	
-	public function send ():String {
+	public function send (?acceptType:String = null):String {
 		var h = new Http(uri());
 		#if js
 		h.async = false;
 		#end
 		h.setHeader("Authorization", composeHeader());
+		if (acceptType != null) {
+			h.setHeader("Accept", acceptType);
+		}
 		if (data != null) {
 			h.setHeader("Content-Type", "application/x-www-form-urlencoded");
 			h.setPostData(postDataStr());
