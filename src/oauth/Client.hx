@@ -84,7 +84,7 @@ class Client {
 	}
 	
 	public inline function requestJSON (uri:String, ?post:Bool = false, ?postData:Dynamic):Dynamic {
-		return Json.parse(request(uri, post, postData));
+		return Json.parse(request(uri, post, postData, "application/json"));
 	}
 	
 	inline function jsonToMap (json:Dynamic):Map<String, String> {
@@ -97,10 +97,10 @@ class Client {
 		return map;
 	}
 	
-	public function request (uri:String, ?post:Bool = false, ?postData:Dynamic):String {
+	public function request (uri:String, ?post:Bool = false, ?postData:Dynamic, ?acceptType:String):String {
 		var req = new Request(version, uri, consumer, accessToken, post, postData);
 		if (version == V1) req.sign();
-		return req.send();
+		return req.send(acceptType);
 	}
 	
 }
